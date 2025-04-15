@@ -4,8 +4,13 @@ from mistralai import Mistral
 from spire.doc import *
 from spire.doc.common import *
 
-# Impostazioni API
-api_key = "kPt2yjT2ObCWWd5oL2hHtVHPcdGTAyAC"
+# Impostazioni API con chiave presa dai secrets
+try:
+    api_key = st.secrets["MISTRAL_API_KEY"]
+except KeyError:
+    st.error("❌ Chiave API non trovata nei secrets. Assicurati di averla inserita correttamente nei settings di Streamlit.")
+    st.stop()
+
 model = "mistral-large-latest"
 client = Mistral(api_key=api_key)
 
