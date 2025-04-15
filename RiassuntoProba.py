@@ -41,7 +41,11 @@ def generate_summary(document_path):
         ]
     )
 
-    summary = response.choices.message.content
+    try:
+        summary = response.choices[0].message.content
+    except Exception as e:
+        summary = f"Errore nella generazione del riassunto: {str(e)}"
+
     end_time = time.time()
     elapsed_minutes = (end_time - start_time) / 60
 
@@ -56,15 +60,16 @@ if uploaded_file is not None:
     with open("uploaded_document.docx", "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    st.write("Documento caricato con successo!")
+    st.write("✅ Documento caricato con successo!")
 
     if st.button("Genera Riassunto"):
-        summary, elapsed_minutes = generate_summary("uploaded_document.docx")
-        
-        st.write(f"Riassunto completato in {elapsed_minutes:.2f} minuti.")
-        
+        with st.spinner("🧠 Generazione del riassunto in corso..."):
+            summary, elapsed_minutes = generate_summary("uploaded_document.docx")
+
+        st.success(f"✅ Riassunto completato in {elapsed_minutes:.2f} minuti.")
+
         # Mostra l'anteprima del riassunto
-        st.subheader("Anteprima del Riassunto")
+        st.subheader("📄 Anteprima del Riassunto")
         st.write(summary)
 
         # Salva il riassunto in un nuovo documento Word
@@ -78,7 +83,7 @@ if uploaded_file is not None:
 
         with open(output_file, "rb") as f:
             st.download_button(
-                label="Scarica il riassunto",
+                label="📥 Scarica il riassunto",
                 data=f,
                 file_name=output_file,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
