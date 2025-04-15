@@ -29,4 +29,34 @@ Il tuo compito è leggere il testo del documento e generare un riassunto dettagl
 4. Scadenze, vincoli temporali e condizioni
 5. Eventuali riferimenti a normative, leggi o regolamenti
 6. Allegati o riferimenti a sezioni collegate
-7. Indicazioni operative o esecut
+7. Indicazioni operative o esecutive
+
+Sii chiaro, preciso e mantieni uno stile formale e professionale. Non tralasciare alcun dettaglio rilevante.
+"""
+
+    st.write("🧠 Sto generando il riassunto...")
+
+    start_time = time.time()
+    response = client.chat(
+        model=model,
+        messages=[
+            {"role": "system", "content": summary_prompt},
+            {"role": "user", "content": full_text}
+        ]
+    )
+    end_time = time.time()
+
+    summary = response.choices[0].message.content
+
+    st.success(f"✅ Riassunto completato in {((end_time - start_time) / 60):.2f} minuti")
+    st.subheader("📄 Riassunto generato:")
+    st.write(summary)
+
+    # Esportazione DOCX
+    output_doc = Document()
+    output_doc.add_paragraph(summary)
+    output_path = "Riassunto_Generato.docx"
+    output_doc.save(output_path)
+
+    with open(output_path, "rb") as file:
+        st.download_button("📥 Scarica il riassunto", file, file_name="Riassunto_Generato.docx")
