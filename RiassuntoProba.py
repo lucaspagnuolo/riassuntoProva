@@ -4,7 +4,7 @@ from docx import Document
 from mistralai.client import MistralClient
 
 # API Key
-api_key = st.secrets["MISTRAL_API_KEY"]
+api_key = st.secrets["kPt2yjT2ObCWWd5oL2hHtVHPcdGTAyAC"]
 model = "mistral-large-latest"
 client = MistralClient(api_key=api_key)
 
