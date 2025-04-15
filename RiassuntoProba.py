@@ -41,7 +41,7 @@ def generate_summary(document_path):
         ]
     )
 
-    summary = response.choices.message.content
+    summary = response['choices']['message']['content']
     end_time = time.time()
     elapsed_minutes = (end_time - start_time) / 60
 
@@ -62,6 +62,9 @@ if uploaded_file is not None:
         summary, elapsed_minutes = generate_summary("uploaded_document.docx")
         
         st.write(f"Riassunto completato in {elapsed_minutes:.2f} minuti.")
+        
+        # Mostra l'anteprima del riassunto
+        st.subheader("Anteprima del Riassunto")
         st.write(summary)
 
         # Salva il riassunto in un nuovo documento Word
