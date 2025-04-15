@@ -96,21 +96,21 @@ if uploaded_file is not None:
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
 
-# Sezione per la chat interattiva sul documento
-if "document_text" in st.session_state:
-    st.divider()
-    st.subheader("💬 Chatta con il Documento")
+    # Sezione per la chat interattiva sul documento
+    if "document_text" in st.session_state:
+        st.divider()  # Separatore per la sezione della chat
+        st.subheader("💬 Chatta con l'Assistente del Documento")
 
-    user_question = st.text_input("Fai una domanda sul contenuto del documento")
+        user_question = st.text_input("Fai una domanda sul contenuto del documento")
 
-    if user_question:
-        with st.spinner("🧾 Sto leggendo il documento per risponderti..."):
-            chat_response = client.chat.complete(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "Rispondi in modo chiaro, preciso e professionale basandoti solo sul testo del documento."},
-                    {"role": "user", "content": f"Testo del documento:\n\n{st.session_state['document_text']}\n\nDomanda: {user_question}"}
-                ]
-            )
-            answer = chat_response.choices[0].message.content
-            st.markdown(f"**Risposta:** {answer}")
+        if user_question:
+            with st.spinner("🧾 Sto leggendo il documento per risponderti..."):
+                chat_response = client.chat.complete(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": "Rispondi in modo chiaro, preciso e professionale basandoti solo sul testo del documento."},
+                        {"role": "user", "content": f"Testo del documento:\n\n{st.session_state['document_text']}\n\nDomanda: {user_question}"}
+                    ]
+                )
+                answer = chat_response.choices[0].message.content
+                st.markdown(f"**Risposta:** {answer}")
