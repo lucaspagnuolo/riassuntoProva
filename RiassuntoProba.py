@@ -3,12 +3,15 @@ import streamlit as st
 from docx import Document  # Usa python-docx per leggere file .docx
 from mistralai import Chat  # Usa Chat per l'interazione con il modello
 
-# Impostazioni API
+# Impostazioni API (può essere caricata tramite streamlit secrets o variabili ambiente)
 api_key = st.secrets["MISTRAL_API_KEY"]
 model = "mistral-large-latest"  # Puoi cambiare il modello se ne usi un altro
 
+# Impostare la chiave API globalmente (se necessario dalla libreria)
+Chat.api_key = api_key  # Impostazione della chiave API globalmente (modifica a seconda della libreria)
+
 # Creazione del client per Chat
-chat = Chat(api_key=api_key)
+chat = Chat()  # Senza passare l'api_key direttamente nel costruttore
 
 # Interfaccia Streamlit
 st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
