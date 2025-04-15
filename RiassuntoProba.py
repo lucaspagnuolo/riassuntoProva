@@ -41,7 +41,7 @@ def generate_summary(document_path):
         ]
     )
 
-    summary = response['choices']['message']['content']
+    summary = response.choices.message.content
     end_time = time.time()
     elapsed_minutes = (end_time - start_time) / 60
 
