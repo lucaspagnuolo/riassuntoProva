@@ -1,64 +1,44 @@
 import time
 import streamlit as st
-from docx import Document
-from mistralai import Mistral
+from docx import Document  # Usa python-docx per leggere file .docx
+from mistralai.client import ChatClient
+from mistralai.models.chat_completion import ChatMessage
 
-# API Key da secrets
+# Impostazioni API
 api_key = st.secrets["MISTRAL_API_KEY"]
-model = "mistral-large-latest"
-client = Mistral(api_key=api_key)
+model = "mistral-large-latest"  # Puoi cambiare il modello se ne usi un altro
 
-# Interfaccia
+client = ChatClient(api_key=api_key)
+
+# Interfaccia Streamlit
 st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
-st.title("📄 Riassunto automatico di Capitolati e Documenti Tecnici")
+st.title("📄 Riassunto Automatico di un Capitolato")
+st.write("Carica un file .docx per generare un riassunto con l'AI.")
 
-uploaded_file = st.file_uploader("Carica un file Word (.docx)", type=["docx"])
+uploaded_file = st.file_uploader("Carica un file .docx", type="docx")
 
-if uploaded_file is not None:
-    # Estrai testo dal documento
+if uploaded_file:
+    # Caricamento file
     doc = Document(uploaded_file)
-    full_text = "\n".join([para.text for para in doc.paragraphs])
+    full_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip() != ""])
 
-    # Prompt per il modello
-    summary_prompt = """
-Sei un assistente altamente qualificato con esperienza in sintesi professionali di documenti complessi come capitolati, bandi di gara o documenti tecnici.
+    # Mostra anteprima
+    with st.expander("📃 Anteprima del contenuto"):
+        st.text(full_text[:3000] + ("..." if len(full_text) > 3000 else ""))
 
-Il tuo compito è leggere il testo del documento e generare un riassunto dettagliato e strutturato. Il riassunto deve includere:
+    # Prompt per riassunto
+    summary_prompt = "Sei un assistente specializzato in appalti pubblici. Riassumi il seguente capitolato in modo chiaro ed esaustivo:"
 
-1. Obiettivo del documento
-2. Contesto generale
-3. Punti chiave e responsabilità
-4. Scadenze, vincoli temporali e condizioni
-5. Eventuali riferimenti a normative, leggi o regolamenti
-6. Allegati o riferimenti a sezioni collegate
-7. Indicazioni operative o esecutive
+    # Esecuzione con modello Mistral
+    with st.spinner("Sto generando il riassunto..."):
+        response = client.chat(
+            model=model,
+            messages=[
+                ChatMessage(role="system", content=summary_prompt),
+                ChatMessage(role="user", content=full_text)
+            ]
+        )
+        summary = response.choices[0].message.content
 
-Sii chiaro, preciso e mantieni uno stile formale e professionale. Non tralasciare alcun dettaglio rilevante.
-"""
-
-    st.info("⏳ Generazione del riassunto in corso...")
-
-    start_time = time.time()
-    response = client.chat.complete(
-        model=model,
-        messages=[
-            {"role": "system", "content": summary_prompt},
-            {"role": "user", "content": full_text}
-        ]
-    )
-    end_time = time.time()
-
-    summary = response.choices[0].message.content
-
-    st.success(f"✅ Riassunto completato in {((end_time - start_time) / 60):.2f} minuti")
-    st.subheader("🧾 Riassunto generato:")
+    st.subheader("✍️ Riassunto Generato:")
     st.write(summary)
-
-    # Salvataggio e download
-    output_doc = Document()
-    output_doc.add_paragraph(summary)
-    output_path = "Riassunto_Generato.docx"
-    output_doc.save(output_path)
-
-    with open(output_path, "rb") as file:
-        st.download_button("📥 Scarica il riassunto", file, file_name="Riassunto_Generato.docx")
