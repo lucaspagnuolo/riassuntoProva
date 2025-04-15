@@ -1,14 +1,14 @@
 import time
 import streamlit as st
 from docx import Document  # Usa python-docx per leggere file .docx
-from mistralai.client import ChatClient  # Importa ChatClient invece di MistralClient
-from mistralai.models.chat_completion import ChatMessage
+from mistralai import Client  # Cambia con Client se questa è la classe giusta
 
 # Impostazioni API
 api_key = st.secrets["MISTRAL_API_KEY"]
 model = "mistral-large-latest"  # Puoi cambiare il modello se ne usi un altro
 
-client = ChatClient(api_key=api_key)  # Usa ChatClient invece di MistralClient
+# Creazione del client (modificato in base alla libreria)
+client = Client(api_key=api_key)
 
 # Interfaccia Streamlit
 st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
@@ -31,14 +31,14 @@ if uploaded_file:
 
     # Esecuzione con modello Mistral
     with st.spinner("Sto generando il riassunto..."):
-        response = client.chat(
+        response = client.chat_completion(  # Usa chat_completion invece di chat
             model=model,
             messages=[
-                ChatMessage(role="system", content=summary_prompt),
-                ChatMessage(role="user", content=full_text)
+                {"role": "system", "content": summary_prompt},
+                {"role": "user", "content": full_text}
             ]
         )
-        summary = response.choices[0].message.content
+        summary = response['choices'][0]['message']['content']
 
     st.subheader("✍️ Riassunto Generato:")
     st.write(summary)
