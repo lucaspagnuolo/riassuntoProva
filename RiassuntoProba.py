@@ -3,17 +3,19 @@ import streamlit as st
 from docx import Document
 from mistralai.client import MistralClient
 
-# API Key
-api_key = st.secrets["kPt2yjT2ObCWWd5oL2hHtVHPcdGTAyAC"]
+# API Key da secrets
+api_key = st.secrets["MISTRAL_API_KEY"]
 model = "mistral-large-latest"
 client = MistralClient(api_key=api_key)
 
-# Streamlit UI
-st.title("📝 Riassunto automatico da documento Word")
-uploaded_file = st.file_uploader("📂 Carica un file Word (.docx)", type=["docx"])
+# Interfaccia
+st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
+st.title("📄 Riassunto automatico di Capitolati e Documenti Tecnici")
+
+uploaded_file = st.file_uploader("Carica un file Word (.docx)", type=["docx"])
 
 if uploaded_file is not None:
-    # Lettura documento Word
+    # Estrai testo dal documento
     doc = Document(uploaded_file)
     full_text = "\n".join([para.text for para in doc.paragraphs])
 
@@ -34,7 +36,7 @@ Il tuo compito è leggere il testo del documento e generare un riassunto dettagl
 Sii chiaro, preciso e mantieni uno stile formale e professionale. Non tralasciare alcun dettaglio rilevante.
 """
 
-    st.write("🧠 Sto generando il riassunto...")
+    st.info("⏳ Generazione del riassunto in corso...")
 
     start_time = time.time()
     response = client.chat(
@@ -49,10 +51,10 @@ Sii chiaro, preciso e mantieni uno stile formale e professionale. Non tralasciar
     summary = response.choices[0].message.content
 
     st.success(f"✅ Riassunto completato in {((end_time - start_time) / 60):.2f} minuti")
-    st.subheader("📄 Riassunto generato:")
+    st.subheader("🧾 Riassunto generato:")
     st.write(summary)
 
-    # Esportazione DOCX
+    # Salvataggio e download
     output_doc = Document()
     output_doc.add_paragraph(summary)
     output_path = "Riassunto_Generato.docx"
