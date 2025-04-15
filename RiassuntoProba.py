@@ -1,17 +1,14 @@
 import time
 import streamlit as st
 from docx import Document  # Usa python-docx per leggere file .docx
-from mistralai import Chat  # Usa Chat per l'interazione con il modello
+from mistralai import Client  # Cambia con Client se questa è la classe giusta
 
-# Impostazioni API (può essere caricata tramite streamlit secrets o variabili ambiente)
-api_key = st.secrets["MISTRAL_API_KEY"]
+# Impostazioni API (utilizzo del segreto di Streamlit)
+api_key = st.secrets["MISTRAL_API_KEY"]["value"]  # Carica la chiave API dal file secrets.toml
 model = "mistral-large-latest"  # Puoi cambiare il modello se ne usi un altro
 
-# Impostare la chiave API globalmente (se necessario dalla libreria)
-Chat.api_key = api_key  # Impostazione della chiave API globalmente (modifica a seconda della libreria)
-
-# Creazione del client per Chat
-chat = Chat()  # Senza passare l'api_key direttamente nel costruttore
+# Creazione del client
+client = Client(api_key=api_key)
 
 # Interfaccia Streamlit
 st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
@@ -34,14 +31,14 @@ if uploaded_file:
 
     # Esecuzione con modello Mistral
     with st.spinner("Sto generando il riassunto..."):
-        response = chat.create(  # Usa create per inviare la richiesta di chat
+        response = client.chat_completion(  # Usa chat_completion invece di chat
             model=model,
             messages=[
                 {"role": "system", "content": summary_prompt},
                 {"role": "user", "content": full_text}
             ]
         )
-        summary = response['choices'][0]['message']['content']  # Aggiungi controllo se la risposta esiste
+        summary = response['choices'][0]['message']['content']
 
     st.subheader("✍️ Riassunto Generato:")
     st.write(summary)
