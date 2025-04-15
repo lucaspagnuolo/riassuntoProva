@@ -54,22 +54,24 @@ def generate_summary(document_path):
     end_time = time.time()
     elapsed_minutes = (end_time - start_time) / 60
 
-    return summary, elapsed_minutes
+    return summary, text, elapsed_minutes
+
 
 # Streamlit app
-st.title("Generatore di Riassunti per Documenti Complessi")
+st.title("📝 Generatore di Riassunti per Documenti Complessi + Chat")
 
-uploaded_file = st.file_uploader("Carica un documento Word", type=["docx"])
+uploaded_file = st.file_uploader("📤 Carica un documento Word", type=["docx"])
 
 if uploaded_file is not None:
     with open("uploaded_document.docx", "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    st.write("✅ Documento caricato con successo!")
+    st.success("✅ Documento caricato con successo!")
 
-    if st.button("Genera Riassunto"):
-        with st.spinner("🧠 Generazione del riassunto in corso..."):
-            summary, elapsed_minutes = generate_summary("uploaded_document.docx")
+    if st.button("🧠 Genera Riassunto"):
+        with st.spinner("📚 Analisi del documento in corso..."):
+            summary, text, elapsed_minutes = generate_summary("uploaded_document.docx")
+            st.session_state["document_text"] = text  # salva il testo per la chat
 
         st.success(f"✅ Riassunto completato in {elapsed_minutes:.2f} minuti.")
 
@@ -93,3 +95,22 @@ if uploaded_file is not None:
                 file_name=output_file,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
+
+# Sezione per la chat interattiva sul documento
+if "document_text" in st.session_state:
+    st.divider()
+    st.subheader("💬 Chatta con il Documento")
+
+    user_question = st.text_input("Fai una domanda sul contenuto del documento")
+
+    if user_question:
+        with st.spinner("🧾 Sto leggendo il documento per risponderti..."):
+            chat_response = client.chat.complete(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "Rispondi in modo chiaro, preciso e professionale basandoti solo sul testo del documento."},
+                    {"role": "user", "content": f"Testo del documento:\n\n{st.session_state['document_text']}\n\nDomanda: {user_question}"}
+                ]
+            )
+            answer = chat_response.choices[0].message.content
+            st.markdown(f"**Risposta:** {answer}")
