@@ -1,14 +1,14 @@
 import time
 import streamlit as st
 from docx import Document  # Usa python-docx per leggere file .docx
-from mistralai.client import MistralClient
+from mistralai.client import ChatClient  # Importa ChatClient invece di MistralClient
 from mistralai.models.chat_completion import ChatMessage
 
 # Impostazioni API
 api_key = st.secrets["MISTRAL_API_KEY"]
 model = "mistral-large-latest"  # Puoi cambiare il modello se ne usi un altro
 
-client = MistralClient(api_key=api_key)
+client = ChatClient(api_key=api_key)  # Usa ChatClient invece di MistralClient
 
 # Interfaccia Streamlit
 st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
