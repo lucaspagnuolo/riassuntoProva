@@ -1,12 +1,12 @@
 import time
 import streamlit as st
 from docx import Document
-from mistralai.client import MistralClient
+from mistralai import Mistral
 
 # API Key da secrets
 api_key = st.secrets["MISTRAL_API_KEY"]
 model = "mistral-large-latest"
-client = MistralClient(api_key=api_key)
+client = Mistral(api_key=api_key)
 
 # Interfaccia
 st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
@@ -39,7 +39,7 @@ Sii chiaro, preciso e mantieni uno stile formale e professionale. Non tralasciar
     st.info("⏳ Generazione del riassunto in corso...")
 
     start_time = time.time()
-    response = client.chat(
+    response = client.chat.complete(
         model=model,
         messages=[
             {"role": "system", "content": summary_prompt},
