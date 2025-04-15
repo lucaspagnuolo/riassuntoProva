@@ -1,44 +1,82 @@
-import time
 import streamlit as st
-from docx import Document  # Usa python-docx per leggere file .docx
-from mistralai import Client  # Cambia con Client se questa è la classe giusta
+import time
+from mistralai import Mistral
+from spire.doc import *
+from spire.doc.common import *
 
-# Impostazioni API (utilizzo del segreto di Streamlit)
-api_key = st.secrets["MISTRAL_API_KEY"]["value"]  # Carica la chiave API dal file secrets.toml
-model = "mistral-large-latest"  # Puoi cambiare il modello se ne usi un altro
+# Impostazioni API
+api_key = "kPt2yjT2ObCWWd5oL2hHtVHPcdGTAyAC"
+model = "mistral-large-latest"
+client = Mistral(api_key=api_key)
 
-# Creazione del client
-client = Client(api_key=api_key)
+# Funzione per generare il riassunto
+def generate_summary(document_path):
+    doc = Document()
+    doc.LoadFromFile(document_path)
+    text = doc.GetText()
 
-# Interfaccia Streamlit
-st.set_page_config(page_title="Riassunto Capitolato", page_icon="📄")
-st.title("📄 Riassunto Automatico di un Capitolato")
-st.write("Carica un file .docx per generare un riassunto con l'AI.")
+    summary_prompt = """
+    Sei un assistente altamente qualificato con esperienza in sintesi professionali di documenti complessi come capitolati, bandi di gara o documenti tecnici.
 
-uploaded_file = st.file_uploader("Carica un file .docx", type="docx")
+    Il tuo compito è leggere il testo del documento e generare un riassunto dettagliato e strutturato. Il riassunto deve includere:
 
-if uploaded_file:
-    # Caricamento file
-    doc = Document(uploaded_file)
-    full_text = "\n".join([para.text for para in doc.paragraphs if para.text.strip() != ""])
+    1. **Obiettivo del documento**
+    2. **Contesto generale**
+    3. **Punti chiave e responsabilità**
+    4. **Scadenze, vincoli temporali e condizioni**
+    5. **Eventuali riferimenti a normative, leggi o regolamenti**
+    6. **Allegati o riferimenti a sezioni collegate**
+    7. **Indicazioni operative o esecutive**
 
-    # Mostra anteprima
-    with st.expander("📃 Anteprima del contenuto"):
-        st.text(full_text[:3000] + ("..." if len(full_text) > 3000 else ""))
+    Sii chiaro, preciso e mantieni uno stile formale e professionale. Non tralasciare alcun dettaglio rilevante.
+    """
 
-    # Prompt per riassunto
-    summary_prompt = "Sei un assistente specializzato in appalti pubblici. Riassumi il seguente capitolato in modo chiaro ed esaustivo:"
+    start_time = time.time()
 
-    # Esecuzione con modello Mistral
-    with st.spinner("Sto generando il riassunto..."):
-        response = client.chat_completion(  # Usa chat_completion invece di chat
-            model=model,
-            messages=[
-                {"role": "system", "content": summary_prompt},
-                {"role": "user", "content": full_text}
-            ]
-        )
-        summary = response['choices'][0]['message']['content']
+    response = client.chat.complete(
+        model=model,
+        messages=[
+            {"role": "system", "content": summary_prompt},
+            {"role": "user", "content": text}
+        ]
+    )
 
-    st.subheader("✍️ Riassunto Generato:")
-    st.write(summary)
+    summary = response.choices.message.content
+    end_time = time.time()
+    elapsed_minutes = (end_time - start_time) / 60
+
+    return summary, elapsed_minutes
+
+# Streamlit app
+st.title("Generatore di Riassunti per Documenti Complessi")
+
+uploaded_file = st.file_uploader("Carica un documento Word", type=["docx"])
+
+if uploaded_file is not None:
+    with open("uploaded_document.docx", "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    st.write("Documento caricato con successo!")
+
+    if st.button("Genera Riassunto"):
+        summary, elapsed_minutes = generate_summary("uploaded_document.docx")
+        
+        st.write(f"Riassunto completato in {elapsed_minutes:.2f} minuti.")
+        st.write(summary)
+
+        # Salva il riassunto in un nuovo documento Word
+        output_doc = Document()
+        section = output_doc.AddSection()
+        paragraph = section.AddParagraph()
+        paragraph.AppendText(summary)
+
+        output_file = "Capitolato_Oneri_Riassunto.docx"
+        output_doc.SaveToFile(output_file, FileFormat.Docx)
+
+        with open(output_file, "rb") as f:
+            st.download_button(
+                label="Scarica il riassunto",
+                data=f,
+                file_name=output_file,
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            )
