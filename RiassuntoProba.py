@@ -1,156 +1,123 @@
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
 from mistralai import Mistral
-import time
 from docx import Document
+import time
+import fitz  # PyMuPDF
 
-# Recupera API key
+# Carica chiave API Mistral
 try:
     api_key = st.secrets["MISTRAL_API_KEY"]
 except KeyError:
     st.error("❌ Chiave API non trovata nei secrets.")
     st.stop()
 
-client = Mistral(api_key=api_key)
 model = "mistral-large-latest"
+client = Mistral(api_key=api_key)
 
-def calcola_rischio(cvss_score):
-    try:
-        score = float(cvss_score)
-        if score >= 9.0:
-            return "Critica"
-        elif score >= 7.0:
-            return "Alta"
-        elif score >= 4.0:
-            return "Media"
-        else:
-            return "Bassa"
-    except:
-        return "Non determinabile"
+# Funzione per estrarre testo da PDF
+def estrai_testo_pdf(pdf_file):
+    doc = fitz.open(stream=pdf_file.read(), filetype="pdf")
+    testo = ""
+    for page in doc:
+        testo += page.get_text()
+    return testo
 
-def genera_bollettino(cve_url):
-    response = requests.get(cve_url)
-    soup = BeautifulSoup(response.content, "html.parser")
+# Funzione per generare bollettino da testo
+def genera_bollettino_da_testo(testo):
+    prompt = f"""
+Hai il compito di generare un bollettino di sicurezza strutturato e professionale. Analizza il testo qui sotto e genera un output nel seguente formato:
 
-    try:
-        # Nome prodotto
-        nome_prodotto = "Non trovato"
-        h1_tags = soup.find_all("h1")
-        for h1 in h1_tags:
-            text = h1.get_text(strip=True)
-            if "Vulnerability" in text:
-                nome_prodotto = text.replace("New", "").strip()
-                break
+---
+**Oggetto:**
+...
 
-        # Versione fissa
-        versione_fissa = "Non specificata"
-        li_tag = soup.find("li")
-        if li_tag:
-            versione_fissa = li_tag.get_text(strip=True)
+**Ambito:**
+...
 
-        # Tipologia di vulnerabilità
-        tipo_vulnerabilita = "Non disponibile"
-        impact_dt = soup.find("dt", string=lambda s: s and "Impact" in s)
-        if impact_dt:
-            tipo_vulnerabilita = impact_dt.find_next_sibling("dd").get_text(strip=True)
+**Preambolo:**
+...
 
-        # CVSS
-        cvss_score = "N/A"
-        cvss_text = soup.find("dd", string=lambda s: s and "CVSS:3.1" in s)
-        if cvss_text:
-            try:
-                cvss_score = cvss_text.get_text(strip=True).split()[1]
-            except IndexError:
-                pass
-        rischio = calcola_rischio(cvss_score)
+**Stima rischio:**
+...
 
-        # Descrizione tecnica
-        descrizione = "Nessuna descrizione disponibile."
-        p_tag = soup.find("p")
-        if p_tag:
-            descrizione = p_tag.get_text(strip=True)
+**Tipologia di attacco:**
+...
 
-        # CVE ID
-        cve_id = cve_url.split("/")[-1]
+**Prodotti interessati:**
+...
 
-        # Prompt per Mistral
-        prompt = f"""
-Oggetto
-Nuova vulnerabilità risolta in {nome_prodotto.split()[0]}
+**CVE:**
+...
 
-Ambito
-PDL, Software, Microsoft, Edge
+**CVSS:**
+...
 
-Preambolo
-Si segnala la pubblicazione, da parte di Microsoft, di un aggiornamento di sicurezza volto a correggere la vulnerabilità {cve_id} nel browser {nome_prodotto.split()[0]}.
+**Riferimenti:**
+...
 
-Stima rischio
-{rischio}
-(stima Microsoft)
+**Descrizione tecnica:**
+...
 
-Tipologia di attacco
-{tipo_vulnerabilita}
+**Note aggiuntive:**
+Si consiglia di applicare l'aggiornamento di sicurezza il prima possibile per garantire la protezione contro potenziali sfruttamenti della vulnerabilità.
 
-Prodotti interessati
-{nome_prodotto}:
-- versioni precedenti alla {versione_fissa}
+**Data di pubblicazione:**
+[Inserire la data di pubblicazione del bollettino]
 
-CVE
-{cve_id}
+**Firma:**
+[Nome del responsabile della sicurezza o dell'autore del bollettino]
+[Titolo del responsabile]
+[Nome dell'organizzazione]
 
-CVSS
-{cvss_score}
+**Contatti:**
+Per ulteriori informazioni o assistenza, contattare il team di sicurezza informatica all'indirizzo [email@example.com] o al numero [telefono].
+---
 
-Riferimenti
-{cve_url}
-
-Descrizione tecnica
-{descrizione}
+Testo documento:
+{testo}
 """
 
-        start = time.time()
-        response = client.chat.complete(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Genera un bollettino professionale nel formato richiesto."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        end = time.time()
-
-        bollettino = response.choices[0].message.content
-        durata = (end - start) / 60
-        return bollettino, durata
-
-    except Exception as e:
-        st.error(f"❌ Errore durante l'analisi della pagina: {e}")
-        st.stop()
+    start = time.time()
+    response = client.chat.complete(
+        model=model,
+        messages=[
+            {"role": "system", "content": "Sei un esperto di cybersecurity e compliance."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    end = time.time()
+    bollettino = response.choices[0].message.content
+    durata = (end - start) / 60
+    return bollettino, durata
 
 # Interfaccia Streamlit
-st.title("🛡️ Generatore bollettini Cybersecurity (CVE Microsoft)")
+st.title("📄 Generatore Bollettini Cybersecurity da PDF")
 
-url_input = st.text_input("🔗 Inserisci l'URL Microsoft della vulnerabilità")
+uploaded_file = st.file_uploader("📎 Carica un documento PDF", type=["pdf"])
 
-if url_input:
+if uploaded_file:
+    st.success("✅ PDF caricato con successo.")
+
     if st.button("🧠 Genera bollettino"):
-        with st.spinner("⏳ Analisi in corso..."):
-            bollettino, durata = genera_bollettino(url_input)
+        with st.spinner("⏳ Estrazione e generazione in corso..."):
+            testo_estratto = estrai_testo_pdf(uploaded_file)
+            bollettino, durata = genera_bollettino_da_testo(testo_estratto)
 
-        st.success(f"✅ Bollettino generato in {durata:.2f} minuti")
-        st.subheader("📄 Bollettino")
-        st.text_area("Contenuto", bollettino, height=400)
+        st.success(f"✅ Bollettino generato in {durata:.2f} minuti.")
+        st.subheader("📋 Anteprima del Bollettino")
+        st.text_area("Contenuto del bollettino", bollettino, height=500)
 
-        # Salva come Word
+        # Salvataggio Word
         doc = Document()
+        doc.add_heading("Bollettino di Sicurezza", level=1)
         doc.add_paragraph(bollettino)
-        output_file = "Bollettino_Cybersecurity.docx"
-        doc.save(output_file)
+        output_path = "Bollettino_Sicurezza.docx"
+        doc.save(output_path)
 
-        with open(output_file, "rb") as f:
+        with open(output_path, "rb") as f:
             st.download_button(
                 label="📥 Scarica bollettino Word",
                 data=f,
-                file_name=output_file,
+                file_name=output_path,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             )
