@@ -2,8 +2,7 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from mistralai import Mistral
-from spire.doc import Document
-from spire.doc.common import FileFormat
+from docx import Document
 import time
 
 # Carica chiave API Mistral da secrets
@@ -106,13 +105,12 @@ if url_input:
         st.subheader("📄 Anteprima Bollettino")
         st.text_area("Contenuto", bollettino, height=400)
 
-        # Salvataggio Word
+        # Salvataggio Word con python-docx
         doc = Document()
-        section = doc.AddSection()
-        paragraph = section.AddParagraph()
-        paragraph.AppendText(bollettino)
+        doc.add_heading('Bollettino Cybersecurity', level=1)
+        doc.add_paragraph(bollettino)
         output_file = "Bollettino_Cybersecurity.docx"
-        doc.SaveToFile(output_file, FileFormat.Docx)
+        doc.save(output_file)
 
         with open(output_file, "rb") as f:
             st.download_button(
