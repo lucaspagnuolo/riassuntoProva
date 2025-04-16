@@ -3,17 +3,17 @@ import requests
 from bs4 import BeautifulSoup
 from mistralai import Mistral
 import time
-from docx import Document  # <-- nuova libreria, più semplice di Spire
+from docx import Document
 
-# Carica chiave API
+# Recupera API key
 try:
     api_key = st.secrets["MISTRAL_API_KEY"]
 except KeyError:
-    st.error("❌ Chiave API non trovata nei secrets. Inseriscila nei settings di Streamlit.")
+    st.error("❌ Chiave API non trovata nei secrets.")
     st.stop()
 
-model = "mistral-large-latest"
 client = Mistral(api_key=api_key)
+model = "mistral-large-latest"
 
 def calcola_rischio(cvss_score):
     try:
@@ -35,63 +35,70 @@ def genera_bollettino(cve_url):
 
     try:
         # Nome prodotto
-        h1 = soup.find("h1", class_="ms-fontWeight-semibold")
-        if not h1:
-            st.error("❌ Impossibile trovare il nome del prodotto.")
-            st.stop()
-        nome_prodotto = h1.get_text(strip=True).replace("New", "").strip()
+        nome_prodotto = "Non trovato"
+        h1_tags = soup.find_all("h1")
+        for h1 in h1_tags:
+            text = h1.get_text(strip=True)
+            if "Vulnerability" in text:
+                nome_prodotto = text.replace("New", "").strip()
+                break
 
         # Versione fissa
-        prima_li = soup.find("li")
-        if not prima_li:
-            st.error("❌ Versione fissa non trovata.")
-            st.stop()
-        versione_fissa = prima_li.text.strip()
+        versione_fissa = "Non specificata"
+        li_tag = soup.find("li")
+        if li_tag:
+            versione_fissa = li_tag.get_text(strip=True)
 
-        # Tipo vulnerabilità
-        impact_dt = soup.find("dt", string="Impact")
-        if not impact_dt:
-            st.error("❌ Tipologia di vulnerabilità non trovata.")
-            st.stop()
-        tipo_vulnerabilita = impact_dt.find_next_sibling("dd").text.strip()
+        # Tipologia di vulnerabilità
+        tipo_vulnerabilita = "Non disponibile"
+        impact_dt = soup.find("dt", string=lambda s: s and "Impact" in s)
+        if impact_dt:
+            tipo_vulnerabilita = impact_dt.find_next_sibling("dd").get_text(strip=True)
 
-        # CVSS Score
-        cvss_dd = soup.find("dd", string=lambda s: s and "CVSS:3.1" in s)
-        if not cvss_dd:
-            st.error("❌ CVSS non trovato.")
-            st.stop()
-        cvss_score = cvss_dd.text.split()[1]
+        # CVSS
+        cvss_score = "N/A"
+        cvss_text = soup.find("dd", string=lambda s: s and "CVSS:3.1" in s)
+        if cvss_text:
+            try:
+                cvss_score = cvss_text.get_text(strip=True).split()[1]
+            except IndexError:
+                pass
         rischio = calcola_rischio(cvss_score)
 
         # Descrizione tecnica
-        descrizione_div = soup.find("div", class_="css-342")
-        if not descrizione_div:
-            st.error("❌ Descrizione tecnica non trovata.")
-            st.stop()
-        descrizione = descrizione_div.get_text(strip=True)
+        descrizione = "Nessuna descrizione disponibile."
+        p_tag = soup.find("p")
+        if p_tag:
+            descrizione = p_tag.get_text(strip=True)
 
+        # CVE ID
         cve_id = cve_url.split("/")[-1]
 
-        # Prompt da passare a Mistral
+        # Prompt per Mistral
         prompt = f"""
-Costruisci un bollettino cybersecurity nel seguente formato:
-
 Oggetto
 Nuova vulnerabilità risolta in {nome_prodotto.split()[0]}
+
 Ambito
 PDL, Software, Microsoft, Edge
+
 Preambolo
 Si segnala la pubblicazione, da parte di Microsoft, di un aggiornamento di sicurezza volto a correggere la vulnerabilità {cve_id} nel browser {nome_prodotto.split()[0]}.
+
 Stima rischio
 {rischio}
 (stima Microsoft)
+
 Tipologia di attacco
 {tipo_vulnerabilita}
+
 Prodotti interessati
 {nome_prodotto}:
 - versioni precedenti alla {versione_fissa}
+
 CVE
 {cve_id}
+
 CVSS
 {cvss_score}
 
@@ -100,9 +107,8 @@ Riferimenti
 
 Descrizione tecnica
 {descrizione}
-        """
+"""
 
-        # Chiamata a Mistral
         start = time.time()
         response = client.chat.complete(
             model=model,
@@ -112,31 +118,30 @@ Descrizione tecnica
             ]
         )
         end = time.time()
+
         bollettino = response.choices[0].message.content
         durata = (end - start) / 60
-
         return bollettino, durata
 
     except Exception as e:
-        st.error(f"❌ Errore durante l'elaborazione: {e}")
+        st.error(f"❌ Errore durante l'analisi della pagina: {e}")
         st.stop()
 
 # Interfaccia Streamlit
-st.title("🛡️ Generatore automatico di bollettini Cybersecurity (CVE Microsoft)")
+st.title("🛡️ Generatore bollettini Cybersecurity (CVE Microsoft)")
 
-url_input = st.text_input("🔗 Inserisci l'URL della vulnerabilità Microsoft (CVE)")
+url_input = st.text_input("🔗 Inserisci l'URL Microsoft della vulnerabilità")
 
 if url_input:
     if st.button("🧠 Genera bollettino"):
-        with st.spinner("🔍 Estrazione e analisi in corso..."):
+        with st.spinner("⏳ Analisi in corso..."):
             bollettino, durata = genera_bollettino(url_input)
 
         st.success(f"✅ Bollettino generato in {durata:.2f} minuti")
-
-        st.subheader("📄 Anteprima Bollettino")
+        st.subheader("📄 Bollettino")
         st.text_area("Contenuto", bollettino, height=400)
 
-        # Salvataggio Word con python-docx
+        # Salva come Word
         doc = Document()
         doc.add_paragraph(bollettino)
         output_file = "Bollettino_Cybersecurity.docx"
