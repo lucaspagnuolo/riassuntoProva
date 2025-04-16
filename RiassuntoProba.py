@@ -2,10 +2,10 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from mistralai import Mistral
-from docx import Document
 import time
+from docx import Document  # <-- nuova libreria, più semplice di Spire
 
-# Carica chiave API Mistral da secrets
+# Carica chiave API
 try:
     api_key = st.secrets["MISTRAL_API_KEY"]
 except KeyError:
@@ -15,7 +15,6 @@ except KeyError:
 model = "mistral-large-latest"
 client = Mistral(api_key=api_key)
 
-# Funzione per determinare il rischio da CVSS
 def calcola_rischio(cvss_score):
     try:
         score = float(cvss_score)
@@ -30,23 +29,51 @@ def calcola_rischio(cvss_score):
     except:
         return "Non determinabile"
 
-# Funzione per generare il bollettino
 def genera_bollettino(cve_url):
     response = requests.get(cve_url)
     soup = BeautifulSoup(response.content, "html.parser")
 
-    # Estrazione info
-    nome_prodotto = soup.find("h1", class_="ms-fontWeight-semibold").get_text(strip=True).replace("New", "").strip()
-    versione_fissa = soup.find("li").text.strip()
-    tipo_vulnerabilita = soup.find("dt", string="Impact").find_next_sibling("dd").text.strip()
-    cvss_text = soup.find("dd", string=lambda s: s and "CVSS:3.1" in s).text
-    cvss_score = cvss_text.split()[1]  # estrae tipo: "7.5"
-    rischio = calcola_rischio(cvss_score)
-    descrizione = soup.find("div", class_="css-342").get_text(strip=True)
-    cve_id = cve_url.split("/")[-1]
+    try:
+        # Nome prodotto
+        h1 = soup.find("h1", class_="ms-fontWeight-semibold")
+        if not h1:
+            st.error("❌ Impossibile trovare il nome del prodotto.")
+            st.stop()
+        nome_prodotto = h1.get_text(strip=True).replace("New", "").strip()
 
-    # Prompt Mistral
-    prompt = f"""
+        # Versione fissa
+        prima_li = soup.find("li")
+        if not prima_li:
+            st.error("❌ Versione fissa non trovata.")
+            st.stop()
+        versione_fissa = prima_li.text.strip()
+
+        # Tipo vulnerabilità
+        impact_dt = soup.find("dt", string="Impact")
+        if not impact_dt:
+            st.error("❌ Tipologia di vulnerabilità non trovata.")
+            st.stop()
+        tipo_vulnerabilita = impact_dt.find_next_sibling("dd").text.strip()
+
+        # CVSS Score
+        cvss_dd = soup.find("dd", string=lambda s: s and "CVSS:3.1" in s)
+        if not cvss_dd:
+            st.error("❌ CVSS non trovato.")
+            st.stop()
+        cvss_score = cvss_dd.text.split()[1]
+        rischio = calcola_rischio(cvss_score)
+
+        # Descrizione tecnica
+        descrizione_div = soup.find("div", class_="css-342")
+        if not descrizione_div:
+            st.error("❌ Descrizione tecnica non trovata.")
+            st.stop()
+        descrizione = descrizione_div.get_text(strip=True)
+
+        cve_id = cve_url.split("/")[-1]
+
+        # Prompt da passare a Mistral
+        prompt = f"""
 Costruisci un bollettino cybersecurity nel seguente formato:
 
 Oggetto
@@ -73,24 +100,28 @@ Riferimenti
 
 Descrizione tecnica
 {descrizione}
-    """
+        """
 
-    # Chiamata a Mistral
-    start = time.time()
-    response = client.chat.complete(
-        model=model,
-        messages=[
-            {"role": "system", "content": "Genera un bollettino professionale nel formato richiesto."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    end = time.time()
-    bollettino = response.choices[0].message.content
-    durata = (end - start) / 60
+        # Chiamata a Mistral
+        start = time.time()
+        response = client.chat.complete(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Genera un bollettino professionale nel formato richiesto."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        end = time.time()
+        bollettino = response.choices[0].message.content
+        durata = (end - start) / 60
 
-    return bollettino, durata
+        return bollettino, durata
 
-# App Streamlit
+    except Exception as e:
+        st.error(f"❌ Errore durante l'elaborazione: {e}")
+        st.stop()
+
+# Interfaccia Streamlit
 st.title("🛡️ Generatore automatico di bollettini Cybersecurity (CVE Microsoft)")
 
 url_input = st.text_input("🔗 Inserisci l'URL della vulnerabilità Microsoft (CVE)")
@@ -107,7 +138,6 @@ if url_input:
 
         # Salvataggio Word con python-docx
         doc = Document()
-        doc.add_heading('Bollettino Cybersecurity', level=1)
         doc.add_paragraph(bollettino)
         output_file = "Bollettino_Cybersecurity.docx"
         doc.save(output_file)
